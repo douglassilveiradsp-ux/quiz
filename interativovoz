@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<title>Treinamento: Como Fazer um Bolo</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: Arial, sans-serif; background:#fff4e6; color:#3b2a1a;
+         display:flex; justify-content:center; padding:20px; }
+  .app { width:100%; max-width:720px; background:#fff; border-radius:16px;
+         box-shadow:0 6px 20px rgba(0,0,0,.15); padding:24px; text-align:center; }
+  h1 { margin:0 0 4px; font-size:1.5rem; }
+  .sub { color:#8a6d4b; margin-bottom:16px; }
+  .figura { font-size:7rem; line-height:1.2; min-height:150px; transition:transform .4s; }
+  .figura.pulo { transform:scale(1.15); }
+  .imagem { max-width:100%; max-height:220px; display:none; margin:0 auto 8px; border-radius:12px; }
+  h2 { margin:8px 0; }
+  .texto { font-size:1.15rem; min-height:70px; }
+  .barra { background:#f1e0c9; border-radius:10px; height:14px; overflow:hidden; margin:16px 0 6px; }
+  .barra div { height:100%; width:0; background:#e67e22; transition:width .3s linear; }
+  .tempo { color:#8a6d4b; margin-bottom:12px; }
+  .passos { display:flex; justify-content:center; gap:8px; margin-bottom:14px; }
+  .bolinha { width:14px; height:14px; border-radius:50%; background:#f1e0c9; cursor:pointer; }
+  .bolinha.ativa { background:#e67e22; }
+  button { background:#e67e22; color:#fff; border:none; border-radius:10px;
+           padding:10px 18px; font-size:1rem; cursor:pointer; margin:4px; }
+  button:hover { background:#cf6d12; }
+  button.sec { background:#8a6d4b; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🎂 Como Fazer um Bolo</h1>
+  <div class="sub">Treinamento rápido de 4 minutos</div>
+ 
+  <div class="figura" id="figura"></div>
+  <img class="imagem" id="imagem" alt="">
+  <h2 id="titulo"></h2>
+  <div class="texto" id="texto"></div>
+ 
+  <div class="barra"><div id="progresso"></div></div>
+  <div class="tempo" id="tempo">0:00 / 4:00</div>
+  <div class="passos" id="passos"></div>
+ 
+  <button id="btnAnterior" class="sec">⬅ Anterior</button>
+  <button id="btnPlay">▶ Iniciar</button>
+  <button id="btnProximo" class="sec">Próximo ➡</button>
+  <button id="btnReiniciar" class="sec">🔄 Reiniciar</button>
+  <button id="btnVoz" class="sec">🔊 Voz: ligada</button>
+</div>
+ 
+<script>
+  // Cada passo dura 40 segundos: 6 passos = 4 minutos.
+  // Para usar imagens suas, coloque os arquivos na pasta "imagens"
+  // e preencha o campo "imagem" (ex.: "imagens/ovos.png").
+  const DURACAO_PASSO = 40; // segundos
+  const passos = [
+    { figura:"🧺🥚🥛🌾", imagem:"", titulo:"1. Separe os ingredientes",
+      texto:"3 ovos, 2 xícaras de farinha de trigo, 1 xícara de açúcar, 1 xícara de leite, meia xícara de óleo e 1 colher de fermento." },
+    { figura:"🥚🍚", imagem:"", titulo:"2. Misture os ovos, o açúcar e o óleo",
+      texto:"Em uma tigela, bata os ovos com o açúcar e o óleo até ficar uma mistura clara e cremosa." },
+    { figura:"🌾🥛", imagem:"", titulo:"3. Adicione farinha e leite",
+      texto:"Coloque a farinha e o leite aos poucos, mexendo sempre, até a massa ficar lisa e sem grumos." },
+    { figura:"🧁✨", imagem:"", titulo:"4. Coloque o fermento",
+      texto:"Por último, adicione o fermento e misture delicadamente, sem bater muito." },
+    { figura:"🍰🔥", imagem:"", titulo:"5. Asse o bolo",
+      texto:"Despeje na forma untada e leve ao forno pré-aquecido a 180 °C por cerca de 40 minutos." },
+    { figura:"🎂🎉", imagem:"", titulo:"6. Desenforme e sirva",
+      texto:"Espere esfriar um pouco, desenforme e decore a gosto. Bom apetite!" }
+  ];
+ 
+  const total = passos.length * DURACAO_PASSO;
+  let segundos = 0, timer = null;
+ 
+  const el = id => document.getElementById(id);
+  const fmt = s => Math.floor(s/60) + ":" + String(s%60).padStart(2,"0");
+ 
+  // cria as bolinhas de navegação
+  passos.forEach((_, i) => {
+    const b = document.createElement("div");
+    b.className = "bolinha";
+    b.onclick = () => irPara(i);
+    el("passos").appendChild(b);
+  });
+ 
+  function passoAtual() {
+    return Math.min(Math.floor(segundos / DURACAO_PASSO), passos.length - 1);
+  }
+ 
+  // ===== VOZ (Web Speech API) =====
+  let vozLigada = true;
+  let vozPtBr = null;
+ 
+  function escolherVoz() {
+    const vozes = speechSynthesis.getVoices();
+    vozPtBr = vozes.find(v => v.lang === "pt-BR") ||
+              vozes.find(v => v.lang && v.lang.toLowerCase().startsWith("pt")) || null;
+  }
+  if ("speechSynthesis" in window) {
+    escolherVoz();
+    speechSynthesis.onvoiceschanged = escolherVoz;
+  }
+ 
+  function falarTexto(texto) {
+    if (!vozLigada || !("speechSynthesis" in window)) return;
+    speechSynthesis.cancel();
+    const fala = new SpeechSynthesisUtterance(texto);
+    fala.lang = "pt-BR";
+    if (vozPtBr) fala.voice = vozPtBr;
+    fala.rate = 0.95;
+    speechSynthesis.speak(fala);
+  }
+ 
+  function calarVoz() {
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+  }
+ 
+  function mostrar(falar = false) {
+    const i = passoAtual(), p = passos[i];
+    el("figura").textContent = p.figura;
+    el("titulo").textContent = p.titulo;
+    el("texto").textContent = p.texto;
+    const img = el("imagem");
+    if (p.imagem) { img.src = p.imagem; img.alt = p.titulo; img.style.display = "block"; }
+    else { img.style.display = "none"; }
+    el("progresso").style.width = (segundos / total * 100) + "%";
+    el("tempo").textContent = fmt(segundos) + " / " + fmt(total);
+    [...el("passos").children].forEach((b, k) => b.classList.toggle("ativa", k === i));
+    el("figura").classList.add("pulo");
+    setTimeout(() => el("figura").classList.remove("pulo"), 400);
+    if (falar) falarTexto(p.titulo + ". " + p.texto);
+  }
+ 
+  function tick() {
+    segundos++;
+    if (segundos >= total) { segundos = total; parar(); el("btnPlay").textContent = "▶ Rever"; }
+    const mudou = segundos % DURACAO_PASSO === 0 || segundos === total;
+    if (mudou) mostrar(segundos < total);
+    else {
+      el("progresso").style.width = (segundos / total * 100) + "%";
+      el("tempo").textContent = fmt(segundos) + " / " + fmt(total);
+    }
+  }
+ 
+  function iniciar() {
+    if (segundos >= total) segundos = 0;
+    mostrar(true);
+    timer = setInterval(tick, 1000);
+    el("btnPlay").textContent = "⏸ Pausar";
+  }
+  function parar() { clearInterval(timer); timer = null; calarVoz(); }
+ 
+  function irPara(i) {
+    i = Math.max(0, Math.min(i, passos.length - 1));
+    segundos = i * DURACAO_PASSO;
+    mostrar(true);
+  }
+ 
+  el("btnPlay").onclick = () => {
+    if (timer) { parar(); el("btnPlay").textContent = "▶ Continuar"; }
+    else iniciar();
+  };
+  el("btnAnterior").onclick = () => irPara(passoAtual() - 1);
+  el("btnProximo").onclick = () => irPara(passoAtual() + 1);
+  el("btnReiniciar").onclick = () => { parar(); segundos = 0; mostrar(); el("btnPlay").textContent = "▶ Iniciar"; };
+ 
+  el("btnVoz").onclick = () => {
+    vozLigada = !vozLigada;
+    el("btnVoz").textContent = vozLigada ? "🔊 Voz: ligada" : "🔇 Voz: desligada";
+    if (!vozLigada) calarVoz();
+    else falarTexto(passos[passoAtual()].titulo + ". " + passos[passoAtual()].texto);
+  };
+ 
+  mostrar();
+</script>
+</body>
+</html>
+ 
